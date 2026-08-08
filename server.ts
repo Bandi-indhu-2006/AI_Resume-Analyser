@@ -179,14 +179,19 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Vite middleware for development / Production static serving
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && !process.env.VERCEL_ENV) {
+    try {
+      const viteModule = 'vite';
+      const { createServer: createViteServer } = await import(/* @vite-ignore */ viteModule);
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn('[SERVER] Dev Vite middleware skipped:', e);
+    }
+  } else if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -195,14 +200,14 @@ async function startServer() {
   }
 
   // Only bind port if running in traditional standalone container environment
-  if (!process.env.VERCEL) {
+  if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[ResumeAI] Server listening on http://0.0.0.0:${PORT}`);
     });
   }
 }
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
   startServer();
 }
 
