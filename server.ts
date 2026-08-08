@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import multer from 'multer';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { extractTextFromBuffer } from './server/extractors.js';
 import { analyzeResumeWithGemini, isGeminiConfigured } from './server/geminiService.js';
 
@@ -180,7 +179,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Vite middleware for development / Production static serving
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
