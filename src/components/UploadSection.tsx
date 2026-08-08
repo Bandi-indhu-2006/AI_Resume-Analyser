@@ -81,11 +81,18 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
         const responseText = await response.text();
         let data: any;
 
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseErr) {
-          console.error('Server returned non-JSON response:', responseText.slice(0, 300));
-          throw new Error('Server returned an unexpected response format. Please try re-uploading or pasting plain text.');
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          try {
+            data = JSON.parse(responseText);
+          } catch (parseErr) {
+            console.error('[UploadSection] Failed to parse JSON response:', parseErr);
+          }
+        }
+
+        if (!data) {
+          console.error('[UploadSection] Server returned non-JSON response:', responseText.slice(0, 300));
+          throw new Error(`Server returned HTTP ${response.status} (${response.statusText || 'Error'}). Please check backend connection or paste text directly.`);
         }
 
         if (!response.ok || !data.success) {

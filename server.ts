@@ -66,15 +66,22 @@ const handleUnsupportedMethod = (req: express.Request, res: express.Response) =>
 app.post('/api/extract-resume', upload.single('resume'), async (req, res) => {
   try {
     if (!req.file) {
+      console.warn('[SERVER] /api/extract-resume failed: No file provided');
       res.status(400).json({ success: false, error: 'No resume file uploaded.' });
       return;
     }
 
     const { buffer, mimetype, originalname, size } = req.file;
 
+    console.log(`[SERVER] Upload received: filename="${originalname}" | size=${size} bytes | mimetype="${mimetype}"`);
+    console.log(`[SERVER] Extraction started for "${originalname}"...`);
+
     const extractionResult = await extractTextFromBuffer(buffer, mimetype, originalname);
 
+    console.log(`[SERVER] Extraction completed for "${originalname}". Extracted character count: ${extractionResult.text?.length || 0}`);
+
     if (!extractionResult.text || extractionResult.text.trim().length === 0) {
+      console.warn(`[SERVER] Extraction returned 0 characters for "${originalname}"`);
       res.status(422).json({
         success: false,
         error: 'Could not extract readable text from the uploaded document. Please check the file content or try uploading a text-searchable PDF or DOCX file.',
@@ -83,13 +90,14 @@ app.post('/api/extract-resume', upload.single('resume'), async (req, res) => {
       return;
     }
 
+    console.log(`[SERVER] Sending success extraction response for "${originalname}"`);
     res.json({
       success: true,
       text: extractionResult.text,
       meta: extractionResult.meta,
     });
   } catch (error: any) {
-    console.error('Error during file extraction:', error);
+    console.error('[SERVER] Error during file extraction:', error);
     res.status(500).json({
       success: false,
       error: error?.message || 'Failed to extract text from the document.',
@@ -103,15 +111,21 @@ app.post('/api/analyze', async (req, res) => {
   try {
     const { resumeText, jobDescription, filename } = req.body;
 
+    console.log(`[SERVER] API /api/analyze request started. Resume char count: ${resumeText?.length || 0}, JD char count: ${jobDescription?.length || 0}, filename: "${filename || 'N/A'}"`);
+
     if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
+      console.warn('[SERVER] /api/analyze failed: Missing or empty resumeText');
       res.status(400).json({ success: false, error: 'Resume text is required for analysis.' });
       return;
     }
 
     if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length === 0) {
+      console.warn('[SERVER] /api/analyze failed: Missing or empty jobDescription');
       res.status(400).json({ success: false, error: 'Job description is required for analysis.' });
       return;
     }
+
+    console.log(`[SERVER] AI analysis started with Gemini...`);
 
     const analysis = await analyzeResumeWithGemini(
       resumeText.trim(),
@@ -119,13 +133,15 @@ app.post('/api/analyze', async (req, res) => {
       filename
     );
 
+    console.log(`[SERVER] AI analysis completed successfully. Returning response.`);
+
     res.json({
       success: true,
       data: analysis,
       isGeminiActive: isGeminiConfigured(),
     });
   } catch (error: any) {
-    console.error('Error during resume analysis:', error);
+    console.error('[SERVER] Error during resume analysis:', error);
     res.status(500).json({
       success: false,
       error: error?.message || 'An error occurred while analyzing the resume.',
@@ -184,3 +200,5 @@ async function startServer() {
 }
 
 startServer();
+
+export default app;

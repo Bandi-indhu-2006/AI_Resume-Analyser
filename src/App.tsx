@@ -51,11 +51,18 @@ export default function App() {
       const responseText = await response.text();
       let data: any;
 
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('Server returned non-JSON response from /api/analyze:', responseText.slice(0, 300));
-        throw new Error('Server returned an unexpected non-JSON response. Please try again.');
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseErr) {
+          console.error('[App] Failed to parse JSON response from /api/analyze:', parseErr);
+        }
+      }
+
+      if (!data) {
+        console.error('[App] Server returned non-JSON response from /api/analyze:', responseText.slice(0, 300));
+        throw new Error(`Server returned HTTP ${response.status} (${response.statusText || 'Error'}). Please verify server configuration and try again.`);
       }
 
       if (!response.ok || !data.success) {
