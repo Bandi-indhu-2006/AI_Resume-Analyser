@@ -1,0 +1,6 @@
+{
+  "name": "ResumeAI — AI Resume Analyzer & Job Matcher",
+  "description": "AI-powered resume analyzer, ATS score estimator, and job matching platform built with Express, React, and Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
