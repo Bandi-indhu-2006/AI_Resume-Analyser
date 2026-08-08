@@ -12,6 +12,7 @@ import {
   AlignLeft,
 } from 'lucide-react';
 import { SAMPLE_RESUME_TEXT, SAMPLE_JOB_DESCRIPTION } from '../data/sampleData';
+import { extractTextFromPdfFile } from '../utils/pdfExtractor';
 
 interface UploadSectionProps {
   onAnalyze: (resumeText: string, jobDescription: string, filename?: string) => Promise<void>;
@@ -55,31 +56,53 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     setSelectedFile(file);
     setIsExtracting(true);
 
-    // Call backend extraction endpoint
     try {
-      const formData = new FormData();
-      formData.append('resume', file);
+      let extractedText = '';
 
-      const response = await fetch('/api/extract-resume', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const responseText = await response.text();
-      let data: any;
-
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('Server returned non-JSON response:', responseText.slice(0, 300));
-        throw new Error('Server returned an unexpected non-JSON response. Please check server logs or upload plain text.');
+      // Client-side extraction for PDF files using pdfjs-dist
+      if (filename.endsWith('.pdf')) {
+        try {
+          extractedText = await extractTextFromPdfFile(file);
+        } catch (pdfErr) {
+          console.warn('Client-side PDF extraction failed, falling back to server endpoint:', pdfErr);
+        }
       }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to extract text from file.');
+      // If client extraction wasn't used or produced empty text, request server extraction
+      if (!extractedText || extractedText.trim().length === 0) {
+        const formData = new FormData();
+        formData.append('resume', file);
+
+        const response = await fetch('/api/extract-resume', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const responseText = await response.text();
+        let data: any;
+
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseErr) {
+          console.error('Server returned non-JSON response:', responseText.slice(0, 300));
+          throw new Error('Server returned an unexpected response format. Please try re-uploading or pasting plain text.');
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to extract text from file.');
+        }
+
+        extractedText = data.text || '';
       }
 
-      setResumeText(data.text);
+      const cleanText = extractedText.trim();
+
+      if (!cleanText || cleanText.length === 0) {
+        setResumeText('');
+        throw new Error('Could not extract readable text from this PDF. Please upload a text-searchable PDF or DOCX.');
+      }
+
+      setResumeText(cleanText);
     } catch (err: any) {
       console.error('File extraction error:', err);
       setErrorMessage(err.message || 'Error parsing file content. Try pasting text directly.');
