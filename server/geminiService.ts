@@ -191,6 +191,65 @@ function createPoorParsingResult(
   };
 }
 
+function normalizeAnalysisResult(
+  parsed: Partial<AnalysisResult>,
+  fallback: AnalysisResult
+): AnalysisResult {
+  return {
+    atsScore: typeof parsed.atsScore === 'number' ? parsed.atsScore : fallback.atsScore,
+    atsBreakdown: {
+      keywordMatch: typeof parsed.atsBreakdown?.keywordMatch === 'number' ? parsed.atsBreakdown.keywordMatch : fallback.atsBreakdown.keywordMatch,
+      skillsMatch: typeof parsed.atsBreakdown?.skillsMatch === 'number' ? parsed.atsBreakdown.skillsMatch : fallback.atsBreakdown.skillsMatch,
+      experienceRelevance: typeof parsed.atsBreakdown?.experienceRelevance === 'number' ? parsed.atsBreakdown.experienceRelevance : fallback.atsBreakdown.experienceRelevance,
+      projectRelevance: typeof parsed.atsBreakdown?.projectRelevance === 'number' ? parsed.atsBreakdown.projectRelevance : fallback.atsBreakdown.projectRelevance,
+      resumeStructure: typeof parsed.atsBreakdown?.resumeStructure === 'number' ? parsed.atsBreakdown.resumeStructure : fallback.atsBreakdown.resumeStructure,
+      formattingReadability: typeof parsed.atsBreakdown?.formattingReadability === 'number' ? parsed.atsBreakdown.formattingReadability : fallback.atsBreakdown.formattingReadability,
+    },
+    atsExplanation: parsed.atsExplanation || fallback.atsExplanation,
+    jobMatchScore: typeof parsed.jobMatchScore === 'number' ? parsed.jobMatchScore : fallback.jobMatchScore,
+    summary: parsed.summary || fallback.summary,
+    overallVerdict: parsed.overallVerdict || fallback.overallVerdict,
+    matchedSkills: Array.isArray(parsed.matchedSkills) ? parsed.matchedSkills : fallback.matchedSkills,
+    missingSkills: Array.isArray(parsed.missingSkills) ? parsed.missingSkills : fallback.missingSkills,
+    partialSkills: Array.isArray(parsed.partialSkills) ? parsed.partialSkills : fallback.partialSkills,
+    categorizedSkills: {
+      programming: parsed.categorizedSkills?.programming || fallback.categorizedSkills.programming,
+      frontend: parsed.categorizedSkills?.frontend || fallback.categorizedSkills.frontend,
+      backend: parsed.categorizedSkills?.backend || fallback.categorizedSkills.backend,
+      databases: parsed.categorizedSkills?.databases || fallback.categorizedSkills.databases,
+      cloud: parsed.categorizedSkills?.cloud || fallback.categorizedSkills.cloud,
+      devops: parsed.categorizedSkills?.devops || fallback.categorizedSkills.devops,
+      ai_ml: parsed.categorizedSkills?.ai_ml || fallback.categorizedSkills.ai_ml,
+      tools: parsed.categorizedSkills?.tools || fallback.categorizedSkills.tools,
+      soft_skills: parsed.categorizedSkills?.soft_skills || fallback.categorizedSkills.soft_skills,
+      other: parsed.categorizedSkills?.other || fallback.categorizedSkills.other,
+    },
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords : fallback.keywords,
+    missingImportantKeywords: Array.isArray(parsed.missingImportantKeywords) ? parsed.missingImportantKeywords : fallback.missingImportantKeywords,
+    strengths: Array.isArray(parsed.strengths) ? parsed.strengths : fallback.strengths,
+    weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : fallback.weaknesses,
+    formattingIssues: Array.isArray(parsed.formattingIssues) ? parsed.formattingIssues : fallback.formattingIssues,
+    sectionAnalysis: Array.isArray(parsed.sectionAnalysis) ? parsed.sectionAnalysis : fallback.sectionAnalysis,
+    bulletImprovements: Array.isArray(parsed.bulletImprovements) ? parsed.bulletImprovements : fallback.bulletImprovements,
+    recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : fallback.recommendations,
+    careerMatches: Array.isArray(parsed.careerMatches) && parsed.careerMatches.length > 0 ? parsed.careerMatches : fallback.careerMatches,
+    targetRole: parsed.targetRole || fallback.targetRole,
+    targetSkillGaps: Array.isArray(parsed.targetSkillGaps) && parsed.targetSkillGaps.length > 0 ? parsed.targetSkillGaps : fallback.targetSkillGaps,
+    transferableSkills: Array.isArray(parsed.transferableSkills) && parsed.transferableSkills.length > 0 ? parsed.transferableSkills : fallback.transferableSkills,
+    skillEvidence: Array.isArray(parsed.skillEvidence) && parsed.skillEvidence.length > 0 ? parsed.skillEvidence : fallback.skillEvidence,
+    skillEvidenceScore: typeof parsed.skillEvidenceScore === 'number' ? parsed.skillEvidenceScore : fallback.skillEvidenceScore,
+    priorityImprovements: Array.isArray(parsed.priorityImprovements) && parsed.priorityImprovements.length > 0 ? parsed.priorityImprovements : fallback.priorityImprovements,
+    thirtyDayPlan: parsed.thirtyDayPlan && Array.isArray(parsed.thirtyDayPlan.weeks) ? parsed.thirtyDayPlan : fallback.thirtyDayPlan,
+    interviewPrep: parsed.interviewPrep && Array.isArray(parsed.interviewPrep.questions) ? parsed.interviewPrep : fallback.interviewPrep,
+    nextBestAction: parsed.nextBestAction || fallback.nextBestAction,
+    parsingQuality: parsed.parsingQuality || fallback.parsingQuality,
+    parsingScore: typeof parsed.parsingScore === 'number' ? parsed.parsingScore : fallback.parsingScore,
+    parsingWarning: parsed.parsingWarning || fallback.parsingWarning,
+    isTextSearchable: typeof parsed.isTextSearchable === 'boolean' ? parsed.isTextSearchable : fallback.isTextSearchable,
+    parsedMeta: parsed.parsedMeta || fallback.parsedMeta,
+  };
+}
+
 export async function analyzeResumeWithGemini(
   resumeText: string,
   jobDescription: string,
@@ -204,11 +263,14 @@ export async function analyzeResumeWithGemini(
   }
 
   const ai = getGenAIClient();
+  const fallback = runLocalFallbackAnalysis(resumeText, jobDescription, filename);
 
   if (!ai) {
-    console.log('[ResumeAI] GEMINI_API_KEY not configured or empty. Using Intelligent Local Fallback Engine.');
-    return runLocalFallbackAnalysis(resumeText, jobDescription, filename);
+    console.log('[ResumeAI] GEMINI_API_KEY is not configured in environment. Using Intelligent Local Fallback Engine.');
+    return fallback;
   }
+
+  console.log(`[ResumeAI] Requesting Gemini API analysis (Model: gemini-3.6-flash)...`);
 
   const prompt = `
 You are an expert ATS (Applicant Tracking System) Specialist, Senior Technical Recruiter, and Career Architect.
@@ -391,32 +453,41 @@ Return a valid, strict JSON object matching this schema structure:
       },
     });
 
-    const jsonText = response.text ? response.text.trim() : '';
-    if (!jsonText) {
-      throw new Error('Gemini returned empty response');
+    const rawText = response.text ? response.text.trim() : '';
+    if (!rawText) {
+      throw new Error('Gemini API returned an empty response string.');
     }
 
-    const parsed: AnalysisResult = JSON.parse(jsonText);
+    // Strip markdown code block fences if present (e.g. ```json ... ```)
+    let cleanJson = rawText;
+    if (cleanJson.startsWith('```')) {
+      cleanJson = cleanJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    }
+
+    const parsed: Partial<AnalysisResult> = JSON.parse(cleanJson);
+    const normalized = normalizeAnalysisResult(parsed, fallback);
+
+    console.log('[ResumeAI] Gemini API analysis successfully completed and parsed.');
 
     // Attach metadata
     const wordCount = resumeText.split(/\s+/).filter(Boolean).length;
-    parsed.parsingQuality = quality.parsingQuality;
-    parsed.parsingScore = quality.parsingScore;
-    parsed.parsingWarning = quality.parsingWarning;
-    parsed.isTextSearchable = quality.isTextSearchable;
+    normalized.parsingQuality = quality.parsingQuality;
+    normalized.parsingScore = quality.parsingScore;
+    normalized.parsingWarning = quality.parsingWarning;
+    normalized.isTextSearchable = quality.isTextSearchable;
 
-    parsed.parsedMeta = {
+    normalized.parsedMeta = {
       charCount: resumeText.length,
       wordCount,
       pageEstimate: Math.max(1, Math.ceil(wordCount / 450)),
       filename: filename || 'Uploaded_Resume.pdf',
     };
 
-    return parsed;
+    return normalized;
   } catch (error: any) {
-    console.error('[ResumeAI] Gemini API call failed or returned invalid JSON:', error);
-    console.log('[ResumeAI] Falling back to intelligent local analyzer engine.');
-    return runLocalFallbackAnalysis(resumeText, jobDescription, filename);
+    console.error('[ResumeAI] Gemini API call or JSON parsing failed:', error?.message || error);
+    console.log('[ResumeAI] Returning intelligent local analyzer result as fallback.');
+    return fallback;
   }
 }
 
