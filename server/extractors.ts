@@ -7,6 +7,8 @@ const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : (pdfPar
 const mammothModule = require('mammoth');
 const mammoth = typeof mammothModule?.extractRawText === 'function' ? mammothModule : (mammothModule?.default || mammothModule);
 
+import { parsePdf, calculateExtractionConfidence } from './src/services/resumeParser.js';
+
 export interface ExtractionMeta {
   filename: string;
   size: number;
@@ -163,20 +165,7 @@ export async function extractTextFromBuffer(
   try {
     // PDF processing
     if (mimeType.includes('pdf') || lowerName.endsWith('.pdf')) {
-      if (typeof pdfParseModule?.PDFParse === 'function') {
-        const parser = new pdfParseModule.PDFParse({ data: buffer });
-        await parser.load();
-        const res = await parser.getText();
-        rawText = res?.text || '';
-      } else if (typeof pdfParseModule === 'function') {
-        const parsed = await pdfParseModule(buffer);
-        rawText = parsed?.text || '';
-      } else if (typeof pdfParse === 'function') {
-        const parsed = await pdfParse(buffer);
-        rawText = parsed?.text || '';
-      } else {
-        throw new Error('PDF parsing module not available as function or class');
-      }
+      rawText = await parsePdf(buffer);
     } else if (
       mimeType.includes('officedocument.wordprocessingml') ||
       mimeType.includes('msword') ||
