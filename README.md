@@ -2,7 +2,7 @@
 
 A production-ready, full-stack AI web application that analyzes candidate resumes against job descriptions to provide actionable, recruiter-grade ATS diagnostics, skill gap analysis, and bullet point rewrites.
 
-![ResumeAI Overview](https://raw.githubusercontent.com/google/aistudio-build/main/assets/preview.png)
+![ResumeAI Overview](https://ai-resume-analyser-nu-woad.vercel.app/)
 
 ---
 
